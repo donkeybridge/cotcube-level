@@ -1,24 +1,6 @@
 # frozen_string_literal: true
 #
 
-module Kernel
-  alias deep_freeze freeze
-  alias deep_frozen? frozen?
-end
-
-module Enumerable
-  def deep_freeze
-    if !@deep_frozen
-      each(&:deep_freeze)
-      @deep_frozen = true
-    end
-    freeze
-  end
-
-  def deep_frozen?
-    !!@deep_frozen
-  end
-end
 
 #
 
@@ -29,19 +11,28 @@ require 'colorize'
 require 'date'    unless defined?(DateTime)
 require 'csv'     unless defined?(CSV)
 require 'yaml'    unless defined?(YAML)
+require 'json'    unless defined?(JSON)
 require 'cotcube-helpers'
 
-
-
 # require_relative 'cotcube-level/filename
+
+%w[ stencil detect_slope triangulate helpers].each do |part| 
+  require_relative "cotcube-level/#{part}"
+end
 
 
 
 module Cotcube
   module Level
-    include Helpers
 
-    # module_function :init, # checks whether environment is prepared and returns the config hash
+    PRECISION = 7
+    #module_function :init, # checks whether environment is prepared and returns the config hash
+    module_function :detect_slope,
+                    :shear_to_deg,
+                    :shear_to_rad,
+                    :rad2deg,
+                    :deg2rad,
+                    :triangulate
     
     # please note that module_functions of sources provided in private files must slso be published within these
   end
