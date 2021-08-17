@@ -1,9 +1,6 @@
 # frozen_string_literal: true
 #
 
-
-#
-
 require 'active_support'
 require 'active_support/core_ext/time'
 require 'active_support/core_ext/numeric'
@@ -12,6 +9,7 @@ require 'date'    unless defined?(DateTime)
 require 'csv'     unless defined?(CSV)
 require 'yaml'    unless defined?(YAML)
 require 'json'    unless defined?(JSON)
+require 'digest'  unless defined?(Digest)
 require 'cotcube-helpers'
 
 # require_relative 'cotcube-level/filename
@@ -26,12 +24,19 @@ module Cotcube
   module Level
 
     PRECISION = 7
+    INTERVALS = %i[ daily ]
+    SWAPTYPES = %i[ full ]
     #module_function :init, # checks whether environment is prepared and returns the config hash
     module_function :detect_slope,
                     :shear_to_deg,
                     :shear_to_rad,
                     :rad2deg,
                     :deg2rad,
+                    :puts_swaps,
+                    :save_swaps,
+                    :get_jsonl_name,
+                    :load_swaps,
+                    :member_to_human,
                     :triangulate
     
     # please note that module_functions of sources provided in private files must slso be published within these
