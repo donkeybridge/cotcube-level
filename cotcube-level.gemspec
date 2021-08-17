@@ -10,7 +10,7 @@ Gem::Specification.new do |spec|
   spec.description   = 'A gem to shear a time series, basically serving as a yet unssen class of indicators.'
 
   spec.homepage      = 'https://github.com/donkeybridge/' + spec.name
-  spec.license       = 'BSD-4-Clause'
+  spec.license       = 'BSD-3-Clause'
   spec.required_ruby_version = Gem::Requirement.new('~> 2.7')
 
   spec.metadata['homepage_uri'] = spec.homepage
