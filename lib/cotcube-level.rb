@@ -14,7 +14,7 @@ require 'cotcube-helpers'
 
 # require_relative 'cotcube-level/filename
 
-%w[ stencil detect_slope triangulate helpers].each do |part| 
+%w[ eod_stencil intraday_stencil detect_slope triangulate helpers].each do |part|
   require_relative "cotcube-level/#{part}"
 end
 
@@ -24,8 +24,14 @@ module Cotcube
   module Level
 
     PRECISION = 7
-    INTERVALS = %i[ daily ]
+    INTERVALS = %i[ daily hours halfs ]
     SWAPTYPES = %i[ full ]
+    TIMEZONES = { 'CT' => Time.find_zone('America/Chicago'),
+                  'DE' => Time.find_zone('Europe/Berlin')    }
+    GLOBAL_SOW = { 'CT' => '0000-1700' }
+    GLOBAL_EOW = { 'CT' => '1700-0000' }
+    GLOBAL_EOD = { 'CT' => '1600-1700' }
+
     #module_function :init, # checks whether environment is prepared and returns the config hash
     module_function :detect_slope,
                     :shear_to_deg,
