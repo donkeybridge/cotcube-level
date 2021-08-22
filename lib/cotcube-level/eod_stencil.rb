@@ -3,7 +3,7 @@
 module Cotcube
   module Level
 
-    class EODStencil
+    class EOD_Stencil
       attr_accessor :base
       attr_reader   :interval
 
@@ -78,11 +78,11 @@ module Cotcube
                          swap_type
                        end
           # TODO: Check / warn / raise whether stencil (if provided) is a proper data type
-          raise ArgumentError, "EODStencil should be nil or Array" unless [NilClass, Array].include? stencil.class
+          raise ArgumentError, "EOD_Stencil should be nil or Array" unless [NilClass, Array].include? stencil.class
           raise ArgumentError, "Each stencil members should contain at least :datetime and :x" unless stencil.nil? or
             stencil.map{|x| ([:datetime, :x] - x.keys).empty? and [ActiveSupport::TimeWithZone, Day].include?( x[:datetime] ) and x[:x].is_a?(Integer)}.reduce(:&)
 
-          base = stencil || EODStencil.provide_raw_stencil(type: stencil_type, interval: :daily, version: version)
+          base = stencil || EOD_Stencil.provide_raw_stencil(type: stencil_type, interval: :daily, version: version)
 
           # fast forward to prev trading day
           date = timezone.parse(date) unless [NilClass, Date, ActiveSupport::TimeWithZone].include? date.class
@@ -103,7 +103,7 @@ module Cotcube
       end
 
       def dup
-        EODStencil.new(
+        EOD_Stencil.new(
           debug:      @debug,
           interval:   @interval,
           swap_type:  @swap_type,
