@@ -3,7 +3,7 @@
 module Cotcube
   module Level
 
-    class Stencil
+    class EODStencil
       attr_accessor :base
       attr_reader   :interval
 
@@ -43,20 +43,17 @@ module Cotcube
         range: nil,                 # used to shrink the stencil size, accepts String or Date
         interval:,
         swap_type:,
-        ranges: nil,                # currently not used, prepared to be used in connection intraday
         contract: nil,
         date: nil,
         debug: false,
         version: nil,               # when referring to a specicic version of the stencil
-        timezone: CHICAGO,
-        stencil: nil,               # instead of loading, use this data
-        #config: init,
-        warnings: true
+        timezone: Cotcube::Helpers::CHICAGO,
+        stencil: nil,               # instead of preparing, use this one if set
+        warnings: true              # be more quiet
       )
         @debug     = debug
         @interval  = interval
         @swap_type = swap_type
-        @swaps     = []
         @contract  = contract
         @warnings = warnings
         step =  case @interval
@@ -81,14 +78,14 @@ module Cotcube
                          swap_type
                        end
           # TODO: Check / warn / raise whether stencil (if provided) is a proper data type
-          raise ArgumentError, "Stencil should be nil or Array" unless [NilClass, Array].include? stencil.class
+          raise ArgumentError, "EODStencil should be nil or Array" unless [NilClass, Array].include? stencil.class
           raise ArgumentError, "Each stencil members should contain at least :datetime and :x" unless stencil.nil? or
             stencil.map{|x| ([:datetime, :x] - x.keys).empty? and [ActiveSupport::TimeWithZone, Day].include?( x[:datetime] ) and x[:x].is_a?(Integer)}.reduce(:&)
 
-          base = stencil || Stencil.provide_raw_stencil(type: stencil_type, interval: :daily, version: version)
+          base = stencil || EODStencil.provide_raw_stencil(type: stencil_type, interval: :daily, version: version)
 
           # fast forward to prev trading day
-          date = CHICAGO.parse(date) unless [NilClass, Date, ActiveSupport::TimeWithZone].include? date.class
+          date = timezone.parse(date) unless [NilClass, Date, ActiveSupport::TimeWithZone].include? date.class
           @date = date || Date.today
           best_match = base.select{|x| x[:datetime].to_date <= @date}.last[:datetime]
           @date  = best_match
@@ -106,7 +103,7 @@ module Cotcube
       end
 
       def dup
-        Stencil.new(
+        EODStencil.new(
           debug:      @debug,
           interval:   @interval,
           swap_type:  @swap_type,
