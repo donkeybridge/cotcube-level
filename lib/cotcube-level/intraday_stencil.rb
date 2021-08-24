@@ -1,5 +1,6 @@
 module Cotcube
   module Level
+    # TODO: Missing documentation of shiftsets, swap_types and stencil_types
     class Intraday_Stencil
 
       GLOBAL_SOW = { 'CT' => '0000-1700' }

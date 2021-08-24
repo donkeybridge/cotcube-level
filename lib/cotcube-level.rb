@@ -12,19 +12,15 @@ require 'json'    unless defined?(JSON)
 require 'digest'  unless defined?(Digest)
 require 'cotcube-helpers'
 
-# require_relative 'cotcube-level/filename
-
 %w[ eod_stencil intraday_stencil detect_slope triangulate helpers].each do |part|
   require_relative "cotcube-level/#{part}"
 end
 
-
-
 module Cotcube
   module Level
 
-    PRECISION = 7
-    INTERVALS = %i[ daily hours halfs ]
+    PRECISION = 16
+    INTERVALS = %i[ daily continuous hours halfs ]
     SWAPTYPES = %i[ full ]
     TIMEZONES = { 'CT' => Time.find_zone('America/Chicago'),
                   'DE' => Time.find_zone('Europe/Berlin')    }
@@ -33,19 +29,19 @@ module Cotcube
     GLOBAL_EOD = { 'CT' => '1600-1700' }
 
     #module_function :init, # checks whether environment is prepared and returns the config hash
-    module_function :detect_slope,
-                    :shear_to_deg,
-                    :shear_to_rad,
+    module_function :detect_slope,    # in detect_slope.rb
+                    :triangulate,     # in triangulate.rb
+                    :shear_to_deg,    # in helpers.rb
+                    :shear_to_rad,    # same all below
                     :rad2deg,
                     :deg2rad,
                     :puts_swaps,
                     :save_swaps,
                     :get_jsonl_name,
                     :load_swaps,
-                    :member_to_human,
-                    :triangulate
+                    :member_to_human
     
-    # please note that module_functions of sources provided in private files must slso be published within these
+    # please note that module_functions of sources provided in non-public files must slso be published within these
   end
 end
 
