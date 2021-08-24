@@ -1,3 +1,7 @@
+## 0.3.1 (August 24, 2021)
+  - renaming triangulation to tritangulation
+  - minor fixes in README and gemspec
+
 ## 0.3.0 (August 24, 2021)
   - removed tests, moving to cotcube-jobs
   - all: added documentation
