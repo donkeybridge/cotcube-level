@@ -1,7 +1,7 @@
 module Cotcube
   module Level
-    def triangulate(
-      contract: nil,        # contract actually isnt needed to triangulation, but allows much more convenient output
+    def tritangulate(
+      contract: nil,        # contract actually isnt needed for tritangulation, but allows much more convenient output
                             # on some occasion here can also be given a :symbol, but this requires :sym to be set
       sym: nil,             # sym is the id set provided by Cotcube::Helper.get_id_set
       side:,                # :upper or :lower
@@ -82,8 +82,8 @@ module Cotcube
 
       ###########################################################################################################################
       # introducing :i to the base, which provides the negative index of the :base Array of the current element
-      # this simplifies handling during the 'triangulation' (of which I know it is misnamed), where I can use the members
-      # array, that will carry just the index of the original base, regardless how many array_members have be already dropped
+      # this simplifies handling during the, where I can use the members array,
+      # that will carry just the index of the original base, regardless how many array_members have be already dropped
       base.each_index.map{|i| base[i][:i] = -base.size + i }
 
 

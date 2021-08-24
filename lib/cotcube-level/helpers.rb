@@ -37,7 +37,7 @@ module Cotcube
     end
 
     # human readable output
-    # list all swaps contained in an array (e.g. result of triangulate)
+    # list all swaps contained in an array (e.g. result of tritangulate)
     def puts_swaps(swaps, format: )
       swaps = [ swaps ] unless swaps.is_a? Array
       swaps.each do |swap|

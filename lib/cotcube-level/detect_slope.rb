@@ -21,7 +21,7 @@ module Cotcube
       old_base = base.dup.select{|b| b[:x] >= 0 and not b[:y].nil? }
 
       # set initial shearing angle if not given as param. This is a prepared functionality, that is not yet used.
-      # when implemented to use in triangulate, it would speed up the binary search process, but initial part 
+      # when implemented to use in tritangulate, it would speed up the binary search process, but initial part 
       # has to be set in a different way
       deg ||= -max / 2.0
 

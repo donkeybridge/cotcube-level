@@ -12,7 +12,7 @@ require 'json'    unless defined?(JSON)
 require 'digest'  unless defined?(Digest)
 require 'cotcube-helpers'
 
-%w[ eod_stencil intraday_stencil detect_slope triangulate helpers].each do |part|
+%w[ eod_stencil intraday_stencil detect_slope tritangulate helpers].each do |part|
   require_relative "cotcube-level/#{part}"
 end
 
@@ -30,7 +30,7 @@ module Cotcube
 
     #module_function :init, # checks whether environment is prepared and returns the config hash
     module_function :detect_slope,    # in detect_slope.rb
-                    :triangulate,     # in triangulate.rb
+                    :tritangulate,     # in tritangulate.rb
                     :shear_to_deg,    # in helpers.rb
                     :shear_to_rad,    # same all below
                     :rad2deg,
