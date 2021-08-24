@@ -1,3 +1,16 @@
+## 0.3.0 (August 24, 2021)
+  - removed tests, moving to cotcube-jobs
+  - all: added documentation
+  - triangulate: added continuous support and documentation
+  - eod_stencil: added support for continuous futures
+  - adapted tests to recent changes
+  - cotcube-level: included intraday_stencil
+  - intraday_stencil: added to repo
+  - eod_stencil: fixing minor typo
+  - triangulate: fixed indention
+  - stencil: slight changes, incl rename to EODStencil
+  - detect_slope: now returns all members, regardless of amount (i.e. check whether it is a valid swap will be done later)
+
 ## 0.2.0 (August 17, 2021)
   - cotcube-level: added new module_functions, added restrictive constants for intervals and swaptypes
   - adding new features to so-called 'test suite'
