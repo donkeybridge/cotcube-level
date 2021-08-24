@@ -7,7 +7,7 @@ Gem::Specification.new do |spec|
   spec.email         = ['donkeybridge@jtown.eu']
 
   spec.summary       = 'A gem to shear a time series '
-  spec.description   = 'A gem to shear a time series, basically serving as a yet unssen class of indicators.'
+  spec.description   = 'A gem to shear a time series, basically serving as a yet unseen class of indicators.'
 
   spec.homepage      = 'https://github.com/donkeybridge/' + spec.name
   spec.license       = 'BSD-3-Clause'
