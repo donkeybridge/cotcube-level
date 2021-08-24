@@ -52,7 +52,7 @@ module Cotcube
         warnings: true              # be more quiet
       )
         @debug     = debug
-        @interval  = interval
+        @interval  = interval == :continuous ? :daily : interval
         @swap_type = swap_type
         @contract  = contract
         @warnings = warnings
@@ -84,7 +84,7 @@ module Cotcube
 
           base = stencil || EOD_Stencil.provide_raw_stencil(type: stencil_type, interval: :daily, version: version)
 
-          # fast forward to prev trading day
+          # fast rewind to previous trading day
           date = timezone.parse(date) unless [NilClass, Date, ActiveSupport::TimeWithZone].include? date.class
           @date = date || Date.today
           best_match = base.select{|x| x[:datetime].to_date <= @date}.last[:datetime]
