@@ -1,3 +1,9 @@
+## 0.3.1.1 (August 25, 2021)
+  - trying to fix versioning mistake
+  - Bump version to 0.3.2.1.
+  - minor fixes correcting mistakes sneaked in during documentation rework
+  - minor fix
+
 ## 0.3.2.1 (August 25, 2021)
   - minor fixes correcting mistakes sneaked in during documentation rework
   - minor fix
