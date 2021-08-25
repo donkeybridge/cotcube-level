@@ -26,7 +26,7 @@ module Cotcube
       # init some helpers
       #
       high       = side == :upper
-      # DELETE first      = base.to_a.find{|x|  not x[:high].nil? }
+      first      = base.to_a.find{|x|  not x[:high].nil? }
       zero       = base.select{|x| x[:x].zero? }
       raise ArgumentError, "Inappropriate base, it should contain ONE :x.zero, but contains #{zero.size}." unless zero.size==1
       zero       = zero.first
@@ -174,7 +174,7 @@ module Cotcube
               current_slope[:members] << b[i] unless current_slope[:members].map{|x| x[:datetime]}.include? b[i][:datetime]
               current_slope[:members].sort_by!{|x| x[:datetime]}
             end
-            current_slope
+            return current_slope
 
           end
           # all new members found in current iteration have now receive their new :x value, depending on their distance to

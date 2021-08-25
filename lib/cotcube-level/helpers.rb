@@ -17,7 +17,7 @@ module Cotcube
         member[:yy] =
           member[:y] +
           (member[:dx].nil? ? member[:x] : member[:dx]) * tan
-        bar
+        member
       }
     end
 
