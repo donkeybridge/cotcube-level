@@ -1,3 +1,7 @@
+## 0.3.2.1 (August 25, 2021)
+  - minor fixes correcting mistakes sneaked in during documentation rework
+  - minor fix
+
 ## 0.3.1 (August 24, 2021)
   - renaming triangulation to tritangulation
   - minor fixes in README and gemspec
