@@ -215,6 +215,7 @@ module Cotcube
           swap_base      = shear_to_deg(base: swap_base, deg: swap[:deg])
           swap_base.map!{|x| x[:dev] = (x[:yy] / sym[:ticksize].to_f); x[:dev] = -( x[:dev] > 0 ? x[:dev].floor : x[:dev].ceil);  x}
           invalids       = swap_base.select{|x| x[:dev] < 0 }
+          with_flaws = 0 unless with_flaws # support legacy versions, where with_flaws was boolean
           if with_flaws > 0
             # TODO: this behaves only as expected when with_flaws == 2
             last_invalid   = invalids[(invalids[-2][:i] + 1 == invalids[-1][:i] ) ? -3 : -2] rescue nil
@@ -243,6 +244,7 @@ module Cotcube
           swap[:avg_dev]   = (swap_base.reject{|x| x[:dev].zero?}.map{|x| x[:dev].abs}.reduce(:+) / (swap_base.size - swap[:members].size).to_f).ceil rescue 0
           # depth:   the maximum distance to the swap line
           swap[:depth]     = swap_base.max_by{|x| x[:dev]}[:dev]
+          swap[:interval]  = interval
           swap[:raw]       = swap[:members].map{|x| x[:x]}.reverse
           swap[:size]      = swap[:members].size
           swap[:length]    = swap[:raw][-1] - swap[:raw][0]
@@ -256,11 +258,11 @@ module Cotcube
           unless %i[ daily continuous ].include? interval
             swap[:color]     = ((rat > 150) ? :light_blue : (rat > 80) ? :magenta : (rat > 30) ? :light_magenta : (rat > 15) ? :light_yellow : high ? :green : :red)
           end
-          swap[:diff]      = swap[:members].last[ high ? :high : :low ] - swap[:members].first[ high ? :high : :low ]
+          swap[:diff]      = (swap[:members].last[ high ? :high : :low ] - swap[:members].first[ high ? :high : :low ]).round(8)
           swap[:ticks]     = (swap[:diff] / sym[:ticksize]).to_i
           # tpi:     ticks per interval, how many ticks are passed each :interval
           swap[:tpi]       = (swap[:ticks].to_f / swap[:length]).round(3)
-          # ppi:     power per interval, how many dollar value is passed each :interval
+          # ppi:     power per interval, how many $dollar value is passed each :interval
           swap[:ppi]       = (swap[:tpi] * sym[:power]).round(3)
         end # swap
       end # lambda
