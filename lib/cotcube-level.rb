@@ -35,7 +35,7 @@ module Cotcube
                     :shear_to_rad,    # same all below
                     :rad2deg,
                     :deg2rad,
-                    :puts_swaps,
+                    :puts_swap,
                     :save_swaps,
                     :get_jsonl_name,
                     :load_swaps,

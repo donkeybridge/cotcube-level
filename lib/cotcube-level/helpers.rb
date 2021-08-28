@@ -37,13 +37,28 @@ module Cotcube
     end
 
     # human readable output
-    # list all swaps contained in an array (e.g. result of tritangulate)
-    def puts_swaps(swaps, format: )
-      swaps = [ swaps ] unless swaps.is_a? Array
-      swaps.each do |swap|
+    # format: e.g. sym[:format]
+    # short:  print one line / less verbose
+    # notice: add this to output as well
+    def puts_swap(swap, format: , short: false, notice: nil)
+      datetime_format = %i[ continuous daily ].include?(swap[:interval]) ? '%Y-%m-%d' : '%Y-%m-%d %H:%M'
+      high = swap[:side] == :high
+      ohlc = high ? :high : :low
+      if short
+        puts "S: #{swap[:side]
+            } L: #{format '%4d', swap[:length]
+            } R: #{format '%4d', swap[:rating]
+            } D: #{format '%4d', swap[:depth]
+            } P: #{format '%10s', (format '%5.2f', swap[:ppi])
+            }   F: #{format format, swap[:members].last[ ohlc ]
+            }   S: #{swap[:members].first[:datetime].strftime(datetime_format)
+            } - #{swap[:members].last[:datetime].strftime(datetime_format)
+            }#{"  NOTE: #{notice}" unless notice.nil?}".colorize(swap[:color] || :white )
+      else
         puts "side: #{swap[:side] }\tlen: #{swap[:length]}  \trating: #{swap[:rating]}".colorize(swap[:color] || :white )
         puts "diff: #{swap[:ticks]}\tdif: #{swap[:diff].round(7)}\tdepth: #{swap[:depth]}".colorize(swap[:color] || :white )
         puts "tpi:  #{swap[:tpi]  }\tppi: #{swap[:ppi]}".colorize(swap[:color] || :white )
+        puts "NOTE: #{notice}".colorize(:light_white) unless notice.nil?
         swap[:members].each {|x| puts member_to_human(x, side: swap[:side], format: format) }
       end
     end
@@ -67,18 +82,21 @@ module Cotcube
     # the name says it all.
     # just note the addition of a digest, that serves to check whether same swap has been yet saved
     # to the cache
+    #
     def save_swaps(swaps, interval:, swap_type:, contract:, sym: nil)
       file = get_jsonl_name(interval: interval, swap_type: swap_type, contract: contract, sym: sym)
       swaps.each do |swap|
+        raise "Illegal swap info: Must contain keys :datetime and :side ... #{swap}" unless (%i[ datetime side ] - swap.keys).empty?
         swap_json = swap.to_json
         digest = Digest::SHA256.hexdigest swap_json
-        res = `cat #{file} | grep #{digest}`.strip
+        res = `cat #{file} | grep '"digest":"#{digest}"'`.strip
         unless res.empty?
-          puts "Cannot save swap, it is already in #{file}:"
+          puts "Cannot save swap, it is already in #{file}:".light_red
           p swap
         else
           swap[:digest] = digest
-          File.open(file, 'a+'){|f| f.write(swap.to_json + "\n") }
+          sorted_keys = [ :datetime, :side ] + ( swap.keys - [ :datetime, :side ])
+          File.open(file, 'a+'){|f| f.write(swap.slice(*sorted_keys).to_json + "\n") }
         end
       end
     end
@@ -95,7 +113,7 @@ module Cotcube
           deep_transform_keys(&:to_sym).
           tap do |sw|
           sw[:datetime] = DateTime.parse(sw[:datetime]) rescue nil
-          sw[:side]     = sw[:side].to_sym
+          %i[ side interval].each {|key| sw[key] = sw[key].to_sym rescue false }
           unless sw[:empty]
             sw[:color]    = sw[:color].to_sym
             sw[:members].map{|mem| mem[:datetime] = DateTime.parse(mem[:datetime]) }
