@@ -104,13 +104,12 @@ module Cotcube
       finalize = lambda do |results|
         results.map do |result|
           result[:members].each  do |member|
-            next if member[:yy].nil? or member[:yy].zero?
+            next if member[:yy].nil? or member[:yy].round(PRECISION-5).zero?
 
             diff = (member[:x] - member[:dx]).abs / 2.0
             member[:dx] = member[:x] + diff
             # it employs another binary-search
-            while member[:yy].round(PRECISION) != 0
-              print '.' if debug
+            while member[:yy].round(PRECISION-5) != 0.0
               member[:yy] = shear_to_deg(deg: result[:deg], base: [ member ] ).first[:yy]
               diff /= 2.0
               if member[:yy] > 0
@@ -119,7 +118,7 @@ module Cotcube
                 member[:dx] -= diff
               end
             end
-            member[:yy] = member[:yy].abs.round(8)
+            member[:yy] = member[:yy].abs.round(PRECISION-5)
           end
 
           puts 'done!'.magenta if debug
