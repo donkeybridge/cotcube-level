@@ -1,3 +1,12 @@
+## 0.3.2 (August 29, 2021)
+  - tritangulate: fixing 'finalize', as Integer zero won't comparte to Float zero
+  - cotcube-level.rb: added :check_exceedance
+  - helpers:member_to_human: added :daily param to distinguish stencils
+  - tritangulate: added 'min_ratio' as param with lambda
+  - eod_stencil: added #use to calculate current swap line value / dist;
+  - tritangulate: added interval to be saved with the swap information.
+  - helpers: moved puts_swaps to puts_swap, and added a :short switch for 1-liners per swap
+
 ## 0.3.1.1 (August 25, 2021)
   - trying to fix versioning mistake
   - Bump version to 0.3.2.1.
