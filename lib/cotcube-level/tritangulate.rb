@@ -9,15 +9,18 @@ module Cotcube
       range: (0..-1),       # range is relative to base
       max: 90,              # the range which to scan for swaps goes from deg 0 to max
       debug: false,
-      min_rating: 3,        # swaps having a lower rating are discarded
-      min_length: 8,        # shorter swaps are discared
+      min_rating: 3,        # 1st criteria: swaps having a lower rating are discarded
+      min_length: 8,        # 2nd criteria: shorter swaps are discared
+      min_ratio:            # 3rd criteria: the ratio between rating and length (if true, swap is discarded)
+        lambda {|r,l| r < l / 4.0 },
       save: true,           # allow saving  of results
       cached: true,         # allow loading of cached results
       interval: ,           # interval (currently) is one of %i[ daily continuous halfs ]
       swap_type: nil,       # if not given, a warning is printed and swaps won't be saved or loaded
       with_flaws: 0,        # the maximum amount of consecutive bars that would actually break the current swap
                             # should be set to 0 for dailies and I suggest no more than 3 for intraday
-      deviation: 2)         # the maximum shift of :x-values of found members
+      deviation: 2          # the maximum shift of :x-values of found members
+    )
 
       raise ArgumentError, "'0 < max < 90, but got '#{max}'" unless max.is_a? Numeric and 0 < max and max <= 90
       raise ArgumentError, 'need :side either :upper or :lower for dots' unless [:upper, :lower].include? side
@@ -34,15 +37,16 @@ module Cotcube
       contract ||= zero[:contract]
       sym      ||= Cotcube::Helpers.get_id_set(contract: contract)
 
+
       if cached
         if interval.nil? or swap_type.nil?
           puts "Warning: Cannot use cache as both :interval and :swap_type must be given".light_yellow
         else
-          cache = load_swaps(interval: interval, swap_type: swap_type, contract: contract, sym: sym)
-          # if the current datetime has been yet processed but nothing has been found,
+          cache = load_swaps(interval: interval, swap_type: swap_type, contract: contract, sym: sym, datetime: zero[:datetime])
+          # if the current datetime was already processed but nothing has been found,
           # an 'empty' value is saved.
-          # that means, if neither an array of swaps nor :empty is found, the datetime has not been processed yet
-          selected = cache.select{|sw| sw[:datetime] == zero[:datetime] and sw[:side] == side}
+          # that means, if neither a swap (or more) nor :empty is found, the datetime has not been processed yet
+          selected = cache.select{|sw| sw[:datetime] == zero[:datetime] and sw[:side] == side }
           unless selected.empty?
             puts 'cache_hit'.light_white if debug
             return (selected.first[:empty] ? [] : selected )
@@ -245,6 +249,7 @@ module Cotcube
           # depth:   the maximum distance to the swap line
           swap[:depth]     = swap_base.max_by{|x| x[:dev]}[:dev]
           swap[:interval]  = interval
+          swap[:swap_type] = swap_type
           swap[:raw]       = swap[:members].map{|x| x[:x]}.reverse
           swap[:size]      = swap[:members].size
           swap[:length]    = swap[:raw][-1] - swap[:raw][0]
@@ -305,7 +310,7 @@ module Cotcube
       binding.irb if debug
 
       # reject all results that do not suffice
-      current_results.reject!{|swap| swap[:rating] < min_rating or swap[:length] < min_length or swap[:rating] < swap[:length] / 4.to_f}
+      current_results.reject!{|swap| swap[:rating] < min_rating or swap[:length] < min_length or min_ratio.call(swap[:rating],swap[:length])}
 
       #####################################################################################################################3
       # finally save results for caching and return them
@@ -314,7 +319,7 @@ module Cotcube
           puts "WARNING: Cannot save swaps, as both :interval and :swap_type must be given".colorize(:light_yellow)
         else
           current_results.map{|sw| mem = sw[:members]; sw[:slope] = (mem.last[:y] - mem.first[:y]) / (mem.last[mem.last[:dx].nil? ? :x : :dx] - mem.first[mem.first[:dx].nil? ? :x : :dx]).to_f }
-          to_save = current_results.empty? ? [ { datetime: zero[:datetime], side: side, empty: true } ] : current_results
+          to_save = current_results.empty? ? [ { datetime: zero[:datetime], side: side, empty: true, interval: interval, swap_type: swap_type } ] : current_results
           save_swaps(to_save, interval: interval, swap_type: swap_type, contract: contract, sym: sym)
         end
       end
