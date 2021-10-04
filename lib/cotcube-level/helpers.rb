@@ -24,14 +24,14 @@ module Cotcube
     # human readable output
     # please note the format must be given, that should be taken from :sym
     def member_to_human(member,side: ,format:, daily: false)
-      high = side == :upper
-      "#{member[:datetime].strftime("%a, %Y-%m-%d#{daily ? "" :" %I:%M%p"}")
-        }  x: #{format '%-4d', member[:x]
+      high = (side == :upper)
+      "#{                         member[:datetime].strftime("%a, %Y-%m-%d#{daily ? "" :" %I:%M%p"}")
+        }  x: #{format '%-4d',    member[:x]
         } dx: #{format '%-8.3f', (member[:dx].nil? ? member[:x] : member[:dx].round(3))
             } #{high ? "high" : "low"
-           }: #{format format, member[high ? :high : :low]
-         } i: #{(format '%4d', member[:i]) unless member[:i].nil?
-         } d: #{format '%6.2f', member[:dev] unless member[:dev].nil?
+           }: #{format format,    member[high ? :high : :low]
+         } i: #{(format '%4d',    member[:i]) unless member[:i].nil?
+         } d: #{format '%6.2f',   member[:dev] unless member[:dev].nil?
             } #{member[:near].nil? ? '' : "near: #{member[:near]}"
          }"
     end
@@ -40,22 +40,23 @@ module Cotcube
     # format: e.g. sym[:format]
     # short:  print one line / less verbose
     # notice: add this to output as well
-    def puts_swap(swap, format: , short: false, notice: nil)
+    def puts_swap(swap, format: , short: true, notice: nil, hash: 2)
       return if swap[:empty]
       daily =  %i[ continuous daily ].include?(swap[:interval].to_sym)
       datetime_format = daily ? '%Y-%m-%d' : '%Y-%m-%d %H:%M'
       high = swap[:side] == :high
       ohlc = high ? :high : :low
       if short
-        puts "S: #{swap[:side]
-            } L: #{format '%4d', swap[:length]
-            } R: #{format '%4d', swap[:rating]
-            } D: #{format '%4d', swap[:depth]
-            } P: #{format '%10s', (format '%5.2f', swap[:ppi])
-            }   F: #{format format, swap[:members].last[ ohlc ]
-            }   S: #{swap[:members].first[:datetime].strftime(datetime_format)
-            } - #{swap[:members].last[:datetime].strftime(datetime_format)
-            }#{format('%20s', (swap[:exceeded] ? "  XXX: #{swap[:exceeded].strftime(datetime_format)}" : ''))
+        puts (hash ? "#{swap[:digest][..hash]}    ".colorize(:light_white) : '') +
+             "S: #{swap[:side]
+            } L: #{   format '%4d', swap[:length]
+            } R: #{   format '%4d', swap[:rating]
+            } D: #{   format '%4d', swap[:depth]
+            } P: #{   format '%10s', (format '%5.2f', swap[:ppi])
+            }   F: #{ format format, swap[:members].last[ ohlc ]
+            }   S: #{ swap[:members].first[:datetime].strftime(datetime_format)
+            } - #{    swap[:members].last[:datetime].strftime(datetime_format)
+            }#{       format('%20s', (swap[:exceeded] ? "  XXX: #{swap[:exceeded].strftime(datetime_format)}" : ''))
             }#{"  NOTE: #{notice}" unless notice.nil?}".colorize(swap[:color] || :white )
       else
         puts "side: #{swap[:side] }\tlen: #{swap[:length]}  \trating: #{swap[:rating]}".colorize(swap[:color] || :white )
@@ -114,7 +115,7 @@ module Cotcube
 
     # loading of swaps is also straight forward
     # it takes few more efforts to normalize the values to their expected format
-    def load_swaps(interval:, swap_type:, contract:, sym: nil, datetime: nil)
+    def load_swaps(interval:, swap_type:, contract:, sym: nil, datetime: nil, recent: false)
       file = get_jsonl_name(interval: interval, swap_type: swap_type, contract: contract, sym: sym)
       jsonl = File.read(file)
       data = jsonl.
@@ -138,7 +139,7 @@ module Cotcube
       # assign exceedance data to actual swaps
       data.select{|swap| swap[:exceeded] }.each do |exc|
         swap = data.find{|ref| ref[:digest] == exc[:ref]}
-        raise RuntimeError, "Consistent history for '#{exc}'. Origin not found." if swap.nil?
+        raise RuntimeError, "Inconsistent history for '#{exc}'. Origin not found." if swap.nil?
         swap[:exceeded] = exc[:exceeded]
       end
       # do not return bare exceedance information
@@ -146,9 +147,9 @@ module Cotcube
       # do not return swaps that are found 'later'
       data.reject!{|swap| swap[:datetime] > datetime } unless datetime.nil?
       # do not return exceeded swaps, that are exceeded in the past
-      recent = 7.days if recent.is_a? TrueClass
-      recent += 2.hours 
-      data.reject!{|swap| swap[:exceeded] and swap[:exceeded] < datetime - recent } unless datetime.nil?
+      recent  = 7.days  if recent.is_a? TrueClass
+      recent += 5.hours if recent
+      data.reject!{|swap| swap[:exceeded] and swap[:exceeded] < datetime - (recent ? recent : 0) } unless datetime.nil?
       # remove exceedance information that is found 'later'
       data.map{|swap| swap.delete(:exceeded) if swap[:exceeded] and swap[:exceeded] > datetime} unless datetime.nil?
       data
