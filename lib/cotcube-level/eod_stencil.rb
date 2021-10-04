@@ -146,10 +146,10 @@ module Cotcube
         ohlc  = high ? :high : :low
         start = base.find{|x| swap[:datetime] == x[:datetime]}
         swap[:current_change] = (swap[:tpi] * start[:x]).round(8)
-        swap[:current_value]  = swap[:members].last[ ohlc ] + swap[:current_change] * sym[:ticksize]
+        swap[:current_value]  =  swap[:members].last[ ohlc ] + swap[:current_change] * sym[:ticksize]
         swap[:current_diff]   = (swap[:current_value] - zero[ohlc]) * (high ? 1 : -1 )
         swap[:current_dist]   = (swap[:current_diff] / sym[:ticksize]).to_i
-        swap[:exceeded]       = zero[:datetime] if swap[:current_dist] < grace
+        swap[:exceeded]       =  zero[:datetime] if swap[:current_dist] < grace
         swap
       end
     end
