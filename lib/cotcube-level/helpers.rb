@@ -40,14 +40,14 @@ module Cotcube
     # format: e.g. sym[:format]
     # short:  print one line / less verbose
     # notice: add this to output as well
-    def puts_swap(swap, format: , short: true, notice: nil, hash: 2)
+    def puts_swap(swap, format: , short: true, notice: nil, hash: 3)
       return if swap[:empty]
       daily =  %i[ continuous daily ].include?(swap[:interval].to_sym)
       datetime_format = daily ? '%Y-%m-%d' : '%Y-%m-%d %H:%M'
       high = swap[:side] == :high
       ohlc = high ? :high : :low
       if short
-        puts (hash ? "#{swap[:digest][..hash]}    ".colorize(:light_white) : '') +
+        puts (hash ? "#{swap[:digest][...hash]}    ".colorize(:light_white) : '') +
              "S: #{swap[:side]
             } L: #{   format '%4d', swap[:length]
             } R: #{   format '%4d', swap[:rating]
@@ -115,7 +115,7 @@ module Cotcube
 
     # loading of swaps is also straight forward
     # it takes few more efforts to normalize the values to their expected format
-    def load_swaps(interval:, swap_type:, contract:, sym: nil, datetime: nil, recent: false)
+    def load_swaps(interval:, swap_type:, contract:, sym: nil, datetime: nil, recent: false, digest: nil, quiet: false)
       file = get_jsonl_name(interval: interval, swap_type: swap_type, contract: contract, sym: sym)
       jsonl = File.read(file)
       data = jsonl.
@@ -152,6 +152,28 @@ module Cotcube
       data.reject!{|swap| swap[:exceeded] and swap[:exceeded] < datetime - (recent ? recent : 0) } unless datetime.nil?
       # remove exceedance information that is found 'later'
       data.map{|swap| swap.delete(:exceeded) if swap[:exceeded] and swap[:exceeded] > datetime} unless datetime.nil?
+      unless digest.nil?
+        data.select! do |z|
+          (Cotcube::Helpers.sub(minimum: digest.length){ z[:digest] } === digest) and
+          not z[:empty]
+        end
+        case data.size
+        when 0
+          puts "No swaps found for digest '#{digest}'." unless quiet
+        when 1
+          sym ||= Cotcube::Helpers.get_id_set(contract: contract)
+          unless quiet
+            puts "Found 1 digest: "
+            data.each {|d| puts_swap( d, format: sym[:format], short: true, hash: digest.size + 2) }
+          end
+        else
+          sym ||= Cotcube::Helpers.get_id_set(contract: contract)
+          unless quiet
+            puts "Too many digests found for digest '#{digest}', please consider sending more figures: "
+            data.each {|d| puts_swap( d, format: sym[:format], short: true, hash: digest.size + 2) }
+          end
+        end
+      end
       data
     end
 
@@ -176,6 +198,18 @@ module Cotcube
         %i[ current_change current_value current_diff current_dist ].map{|key| swap[key] = update[key] }
         swap
       end.compact
+    end
+
+    def mark_exceeded(swap:, datetime:, debug: false)
+      to_save = {
+        datetime: datetime,
+        ref:      swap[:digest],
+        side:     swap[:side],
+        exceeded: datetime
+      }
+      save_swaps to_save, interval: swap[:interval], swap_type: swap[:swap_type], sym: Cotcube::Helpers.get_id_set(contract: swap[:contract]), contract: swap[:contract], quiet: (not debug)
+      swap[:exceeded] = datetime
+      swap
     end
 
   end
