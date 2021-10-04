@@ -42,7 +42,7 @@ module Cotcube
     # notice: add this to output as well
     def puts_swap(swap, format: , short: false, notice: nil)
       return if swap[:empty]
-      daily =  %i[ continuous daily ].include?(swap[:interval])
+      daily =  %i[ continuous daily ].include?(swap[:interval].to_sym)
       datetime_format = daily ? '%Y-%m-%d' : '%Y-%m-%d %H:%M'
       high = swap[:side] == :high
       ohlc = high ? :high : :low
@@ -123,16 +123,16 @@ module Cotcube
         JSON.parse(x).
           deep_transform_keys(&:to_sym).
           tap do |sw|
-          sw[:datetime] = DateTime.parse(sw[:datetime]) rescue nil
-          (sw[:exceeded] = DateTime.parse(sw[:exceeded]) rescue nil) if sw[:exceeded]
-          sw[:interval] = interval
-          sw[:swap_type] = swap_type
-          sw[:contract] = contract
-          %i[ side ].each {|key| sw[key] = sw[key].to_sym rescue false }
-          unless sw[:empty] or sw[:exceeded]
-            sw[:color]    = sw[:color].to_sym
-            sw[:members].map{|mem| mem[:datetime] = DateTime.parse(mem[:datetime]) }
-          end
+            sw[:datetime] = DateTime.parse(sw[:datetime]) rescue nil
+            (sw[:exceeded] = DateTime.parse(sw[:exceeded]) rescue nil) if sw[:exceeded]
+            sw[:interval] = interval
+            sw[:swap_type] = swap_type
+            sw[:contract] = contract
+            %i[ side ].each {|key| sw[key] = sw[key].to_sym rescue false }
+            unless sw[:empty] or sw[:exceeded]
+              sw[:color]    = sw[:color].to_sym
+              sw[:members].map{|mem| mem[:datetime] = DateTime.parse(mem[:datetime]) }
+            end
         end
       end
       # assign exceedance data to actual swaps
@@ -146,9 +146,11 @@ module Cotcube
       # do not return swaps that are found 'later'
       data.reject!{|swap| swap[:datetime] > datetime } unless datetime.nil?
       # do not return exceeded swaps, that are exceeded in the past
-      data.reject!{|swap| swap[:exceeded] and swap[:exceeded] < datetime } unless datetime.nil?
+      recent = 7.days if recent.is_a? TrueClass
+      recent += 2.hours 
+      data.reject!{|swap| swap[:exceeded] and swap[:exceeded] < datetime - recent } unless datetime.nil?
       # remove exceedance information that is found 'later'
-      data.map{|swap| swap.delete(:exceeded) if swap[:exceeded] and swap[:exceeded] > datetime}
+      data.map{|swap| swap.delete(:exceeded) if swap[:exceeded] and swap[:exceeded] > datetime} unless datetime.nil?
       data
     end
 
