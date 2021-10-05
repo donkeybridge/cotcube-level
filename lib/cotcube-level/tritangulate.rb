@@ -19,6 +19,7 @@ module Cotcube
       swap_type: nil,       # if not given, a warning is printed and swaps won't be saved or loaded
       with_flaws: 0,        # the maximum amount of consecutive bars that would actually break the current swap
                             # should be set to 0 for dailies and I suggest no more than 3 for intraday
+      manual: false,        # some triggers must be set differently when manual entry is used
       deviation: 2          # the maximum shift of :x-values of found members
     )
 
@@ -70,8 +71,10 @@ module Cotcube
 
       # abs_peak is the absolute high / low of the base. the shearing operation ends there,
       # but results might be influenced when abs_peak becomes affected by :with_flaws
-      abs_peak = base.send(high ? :max_by : :min_by){|x| x[high ? :high : :low] }[:datetime]
-      base.reject!{|x| x[:datetime] < abs_peak}
+      unless manual
+        abs_peak = base.send(high ? :max_by : :min_by){|x| x[high ? :high : :low] }[:datetime]
+        base.reject!{|x| x[:datetime] < abs_peak}
+      end
 
       ###########################################################################################################################z
       # only if (and only if) the range portion above change the underlying base
@@ -155,7 +158,7 @@ module Cotcube
           # first member is solitary
           if new_members.empty?
             mem_sorted=members.sort
-            if mem_sorted[1] == mem_sorted[0] + 1
+            if mem_sorted[1] == mem_sorted[0] + 1 and not manual
               b2 = b[mem_sorted[1]..mem_sorted[-1]].map{|x| x.dup; x[:dx] = nil; x}
               puts 'starting recursive rerun'.light_red if debug
               alternative_slope = get_slope.call(b2)
