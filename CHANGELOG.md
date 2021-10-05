@@ -1,3 +1,11 @@
+## 0.3.3 (October 05, 2021)
+  - helpers::load_swaps: added :exceed to allow 1(sic) swap to be exceeded while loading
+  - tritangulate: added :manual for feature of manual swap creation with base of 2 members
+  - helpers::load_swap added :digest to filter for swaps starting with pattern
+  - helpers: minor readability improvements
+  - eod_stencil: minor readability improvements
+  - helpers: few optimizations
+
 ## 0.3.2 (August 29, 2021)
   - tritangulate: fixing 'finalize', as Integer zero won't comparte to Float zero
   - cotcube-level.rb: added :check_exceedance
