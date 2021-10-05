@@ -46,6 +46,9 @@ module Cotcube
       datetime_format = daily ? '%Y-%m-%d' : '%Y-%m-%d %H:%M'
       high = swap[:side] == :high
       ohlc = high ? :high : :low
+      if notice.nil? and swap[:exceeded]
+        notice = "exceeded #{swap[:exceeded].strftime(datetime_format)}"
+      end
       if short
         puts (hash ? "#{swap[:digest][...hash]}    ".colorize(:light_white) : '') +
              "S: #{swap[:side]
@@ -56,8 +59,7 @@ module Cotcube
             }   F: #{ format format, swap[:members].last[ ohlc ]
             }   S: #{ swap[:members].first[:datetime].strftime(datetime_format)
             } - #{    swap[:members].last[:datetime].strftime(datetime_format)
-            }#{       format('%20s', (swap[:exceeded] ? "  XXX: #{swap[:exceeded].strftime(datetime_format)}" : ''))
-            }#{"  NOTE: #{notice}" unless notice.nil?}".colorize(swap[:color] || :white )
+            }#{"    NOTE: #{notice}" unless notice.nil?}".colorize(swap[:color] || :white )
       else
         puts "side: #{swap[:side] }\tlen: #{swap[:length]}  \trating: #{swap[:rating]}".colorize(swap[:color] || :white )
         puts "diff: #{swap[:ticks]}\tdif: #{swap[:diff].round(7)}\tdepth: #{swap[:depth]}".colorize(swap[:color] || :white )
