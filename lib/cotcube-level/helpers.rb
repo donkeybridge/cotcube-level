@@ -115,7 +115,7 @@ module Cotcube
 
     # loading of swaps is also straight forward
     # it takes few more efforts to normalize the values to their expected format
-    def load_swaps(interval:, swap_type:, contract:, sym: nil, datetime: nil, recent: false, digest: nil, quiet: false)
+    def load_swaps(interval:, swap_type:, contract:, sym: nil, datetime: nil, recent: false, digest: nil, quiet: false, exceed: false)
       file = get_jsonl_name(interval: interval, swap_type: swap_type, contract: contract, sym: sym)
       jsonl = File.read(file)
       data = jsonl.
@@ -162,15 +162,20 @@ module Cotcube
           puts "No swaps found for digest '#{digest}'." unless quiet
         when 1
           sym ||= Cotcube::Helpers.get_id_set(contract: contract)
-          unless quiet
+          if not quiet or exceed
             puts "Found 1 digest: "
             data.each {|d| puts_swap( d, format: sym[:format], short: true, hash: digest.size + 2) }
+            if exceed
+              exceed = DateTime.now if exceed.is_a? TrueClass
+              mark_exceeded(swap: data.first, datetime: exceed)
+              puts "Swap marked exceeded."
+            end
           end
         else
           sym ||= Cotcube::Helpers.get_id_set(contract: contract)
           unless quiet
             puts "Too many digests found for digest '#{digest}', please consider sending more figures: "
-            data.each {|d| puts_swap( d, format: sym[:format], short: true, hash: digest.size + 2) }
+            data.each {|d| puts_swap( d, format: sym[:format], short: true, hash: digest.size + 3)}
           end
         end
       end
