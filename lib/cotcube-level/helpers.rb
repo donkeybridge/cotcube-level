@@ -42,8 +42,8 @@ module Cotcube
     # notice: add this to output as well
     def puts_swap(swap, format: , short: true, notice: nil, hash: 3)
       return if swap[:empty]
-      daily =  %i[ continuous daily ].include?(swap[:interval].to_sym)
-      datetime_format = daily ? '%Y-%m-%d' : '%Y-%m-%d %H:%M'
+      daily =  %i[ continuous daily ].include?(swap[:interval].to_sym) rescue false
+      datetime_format = daily ? '%Y-%m-%d' : '%Y-%m-%d %I:%M %p'
       high = swap[:side] == :high
       ohlc = high ? :high : :low
       if notice.nil? and swap[:exceeded]
@@ -72,7 +72,7 @@ module Cotcube
     # create a standardized name for the cache files
     # and, on-the-fly, create these files plus their directory
     def get_jsonl_name(interval:, swap_type:, contract:, sym: nil)
-      raise "Interval #{interval } is not supported, please choose from #{INTERVALS}" unless INTERVALS.include? interval
+      raise "Interval #{interval } is not supported, please choose from #{INTERVALS}" unless INTERVALS.include?(interval) || interval.is_a?(Integer)
       raise "Swaptype #{swap_type} is not supported, please choose from #{SWAPTYPES}" unless SWAPTYPES.include? swap_type
       sym ||= Cotcube::Helpers.get_id_set(contract: contract)
       root = '/var/cotcube/level'
