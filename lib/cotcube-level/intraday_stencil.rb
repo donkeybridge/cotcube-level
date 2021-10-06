@@ -1,12 +1,14 @@
+# frozen_string_literal: true
+
 module Cotcube
   module Level
-    # TODO: Missing documentation of shiftsets, swap_types and stencil_types
+
     class Intraday_Stencil
 
-      GLOBAL_SOW = { 'CT' => '0000-1700' }
-      GLOBAL_EOW = { 'CT' => '1700-0000' }
-      GLOBAL_EOD = { 'CT' => '1600-1700' }
 
+      # Class method that loads the (latest) shiftset for given asset
+      # These raw stencils are located in /var/cotcube/level/stencils/shiftsets.csv
+      #
 
       def self.shiftset(asset:, sym: nil)
         shiftset_file = '/var/cotcube/level/stencils/shiftsets.csv'
@@ -18,45 +20,53 @@ module Cotcube
         sym ||= Cotcube::Helpers.get_id_set(symbol: asset)
         current_set = shiftsets.find{|s| s[:symbols] =~ /#{sym[:type]}/ }
         return current_set.tap{|s| headers.map{|h| s[h] = nil if s[h] == '---------' }; s[:rth5] ||= s[:rth]; s[:mpost5] ||= s[:mpost] }  unless current_set.nil?
-        raise "Cannot get shiftset for #{sym[:type]}: #{asset}, please prepare #{shiftset_file} before!" 
+        raise "Cannot get shiftset for #{sym[:type]}: #{asset}, please prepare #{shiftset_file} before!"
       end
 
       attr_reader :base, :shiftset, :timezone, :datetime, :zero, :index
 
-      # asset:    the asset the stencil will be applied to--or :full, if default stencil is desired
-      # datetime: the datetime that will become 'zero'. 
-      #           it will be calculated to the beginning of the previous interval
-      #           it must match the timezone of the asset
-      # interval: the interval as minutes
-      # weeks:    the amount of weeks before the beginning of the current week
-      # future:   the amount of weeks after  the beginning of the current week
-      def initialize(asset:, sym: nil, datetime:, interval:, weeks:, future: 1, debug: false, type:, base: )
-        @shiftset = Intraday_Stencils.shiftset(asset: asset)
-        @timezone = TIMEZONES[@shiftset[:tz]]
-        @debug    = debug
+
+
+      def initialize(
+        asset:,
+        interval: 30.minutes,
+        swap_type: :full,
+        datetime: nil,
+        debug: false,
+        weeks: 6,
+        future: 2,
+        version: nil,               # when referring to a specicic version of the stencil
+        stencil: nil,               # instead of preparing, use this one if set
+        warnings: true              # be more quiet
+      )
+        @shiftset = Intraday_Stencil.shiftset(asset: asset)
+        @timezone  = Cotcube::Level::TIMEZONES[@shiftset[:tz]]
+        @debug     = debug
+        @interval  = interval
+        @swap_type = swap_type
+        @warnings = warnings
+        datetime ||= DateTime.now
         datetime  = @timezone.at(datetime.to_i) unless datetime.is_a? ActiveSupport::TimeWithZone
-        # slight flaw, as datetime does not carry the actuall timezone information but just the abbr. timezone name (like CDT or CEST)
-        raise "Zone mismatch: Timezone of asset is #{@timezone.now.zone} but datetime given is #{dateime.zone}" unless @timezone.now.zone == datetime.zone
         @datetime = datetime.beginning_of_day
         @datetime += interval while @datetime <= datetime - interval
-        @datetime -= interval 
+        @datetime -= interval
+
         const = "RAW_INTRA_STENCIL_#{@shiftset[:nr]}_#{interval.in_minutes.to_i}".to_sym
         if Object.const_defined? const
           @base = (Object.const_get const).map{|z| z.dup}
         else
-
           start_time    = lambda {|x| @shiftset[x].split('-').first rescue '' }
           start_hours   = lambda {|x| @shiftset[x].split('-').first[ 0.. 1].to_i.send(:hours)   rescue 0 }
           start_minutes = lambda {|x| @shiftset[x].split('-').first[-2..-1].to_i.send(:minutes) rescue 0 }
           end_time      = lambda {|x| @shiftset[x].split('-').last  rescue '' }
           end_hours     = lambda {|x| @shiftset[x].split('-').last [ 0.. 1].to_i.send(:hours)   rescue 0 }
-          end_minutes   = lambda {|x| @shiftset[x].split('-').last [-2..-1].to_i.send(:minutes) rescue 0 } 
+          end_minutes   = lambda {|x| @shiftset[x].split('-').last [-2..-1].to_i.send(:minutes) rescue 0 }
 
-          runner = (@datetime - 
+         runner = (@datetime -
                     weeks * 7.days).beginning_of_week(:sunday)
           tm_runner = lambda { runner.strftime('%H%M') }
-          @base = [] 
-          (weeks+future).times do 
+          @base = []
+          (weeks+future).times do
             while tm_runner.call < GLOBAL_SOW[@shiftset[:tz]].split('-').last
               # if daylight is switched, this phase will be shorter or longer
               @base << { datetime: runner, type: :sow }
@@ -81,10 +91,10 @@ module Cotcube
                       yet_rth = true
                     end
                   end
-                  while ((sophase > eophase) ? (tm_runner.call >= sophase or tm_runner.call < eophase) : (tm_runner.call < eophase)) 
+                  while ((sophase > eophase) ? (tm_runner.call >= sophase or tm_runner.call < eophase) : (tm_runner.call < eophase))
                     current = { datetime: runner, type: phase }
                     if phase == :rth and not yet_rth
-                      current[:block] = true 
+                      current[:block] = true
                       yet_rth = true
                     end
                     @base << current
@@ -100,68 +110,22 @@ module Cotcube
             while runner < end_of_week
               @base << { datetime: runner, type: :eow }
               runner += interval
-            end     
+            end
           end
           Object.const_set(const, @base.map{|z| z.dup})
         end
-        self.apply to: base, type: type
-        @index = @base.index{|x| x[:datetime] == @datetime } 
-        @index -= 1 while %i[sow sod mpre mpost eod eow].include? @base[@index][:type] 
-        @datetime = @base[@index][:datetime]
-        @zero  = @base[@index]
-        counter = 0 
-        while @base[@index - counter] and @index - counter >= 0
-          @base[@index - counter][:x] = counter
-          counter += 1
-        end
-        counter = 0 
-        while @base[@index + counter] and @index + counter < @base.length
-          @base[@index + counter][:x] = -counter
-          counter += 1
-        end
-        @base.select!{|z| z[:x] <= 0 or z[:high]}
-      end
 
-      def apply!(to:, type:) 
-        apply(to: to, type: type, force: true)
-      end
-
-      # :force will apply values to each bar regardless of existing ones
-      def apply(to:, type:, force: false, debug: false)
-        offset = 0
-        to.each_index do |i|
-          begin
-            offset += 1 while @base[i+offset][:datetime] < to[i][:datetime]
-            puts "#{i}\t#{offset}\t#{@base[i+offset][:datetime]} < #{to[i][:datetime]}" if debug
-          rescue
-            # appending
-            puts "appending #{i}\t#{offset}\t#{@base[i+offset][:datetime]} < #{to[i][:datetime]}" if debug
-            @base << to[i]
-            next
-          end
-          if @base[i+offset][:datetime] > to[i][:datetime]
-            # skipping
-            puts "skipping #{i}\t#{offset}\t#{@base[i+offset][:datetime]} < #{to[i][:datetime]}" if debug
-            offset -= 1
-            next
-          end
-          # merging
-          j = i + offset
-          @base[j]=@base[j].merge(to[i]) if force or (@base[j][:high].nil? and @base[j][:low].nil?)
-          puts "MERGED:\t#{i}\t#{offset}\t#{@base[j]}" if debug
-        end
-        # finally remove all bars that do not belong to the stencil (i.e. holidays)
-        case type
+        case swap_type
         when :full
           @base.select!{|x| %i[ pre rth post ].include?(x[:type]) }
         when :rth
           @base.select!{|x| x[:type] == :rth  }
-          # to.map{    |x| [:high, :low, :volume].map{|z| x[z] = nil} if x[:block] } 
+          # to.map{    |x| [:high, :low, :volume].map{|z| x[z] = nil} if x[:block] }
         when :flow
           @base.reject!{|x| %i[ meow postmm postmm5 ].include?(x[:type]) }
           @base.
-            map{ |x| 
-            [:high, :low, :volume].map{|z| x[z] = nil} unless x[:type] == :rth 
+            map{ |x|
+            [:high, :low, :volume].map{|z| x[z] = nil} unless x[:type] == :rth
             # [:high, :low, :volume].map{|z| x[z] = nil} if x[:block]
           }
         when :run
@@ -170,10 +134,80 @@ module Cotcube
           raise ArgumentError, "Unknown stencil/swap type '#{type}'"
         end
         @base.map!{|z| z.dup}
+
+        @index = @base.index{|x| x[:datetime] == @datetime }
+        @index -= 1 while %i[sow sod mpre mpost eod eow].include? @base[@index][:type]
+        @datetime = @base[@index][:datetime]
+        @zero  = @base[@index]
+        counter = 0
+        while @base[@index - counter] and @index - counter >= 0
+          @base[@index - counter][:x] = counter
+          counter += 1
+        end
+        counter = 0
+        while @base[@index + counter] and @index + counter < @base.length
+          @base[@index + counter][:x] = -counter
+          counter += 1
+        end
       end
 
+=begin
+      def dup
+        Intraday_Stencil.new(
+          debug:      @debug,
+          interval:   @interval,
+          swap_type:  @swap_type,
+          datetime:   @datetime,
+          stencil:    @base.map{|x| x.dup}
+        )
+      end
+=end
+
+      def zero
+        @zero ||=  @base.find{|b| b[:x].zero? }
+      end
+
+      def apply(to: )
+        offset = 0
+        @base.each_index do |i|
+          begin
+            offset += 1 while to[i+offset][:datetime] < @base[i][:datetime]
+          rescue
+            # appending
+            to << @base[i]
+            next
+          end
+          if to[i+offset][:datetime] > @base[i][:datetime]
+            # skipping
+            offset -= 1
+            next
+          end
+          # merging
+          to[i+offset][:x] = @base[i][:x]
+          to[i+offset][:type] = @base[i][:type]
+        end
+        # finally remove all bars that do not belong to the stencil (i.e. holidays)
+        to.reject!{|x| x[:x].nil? }
+      end
+
+      def use(with:, sym:, zero:, grace: -2)
+        # todo: validate with (check if vslid swap
+        #                sym  (check keys)
+        #                zero (ohlc with x.zero?)
+        #                side ( upper or lower)
+        swap  = with.dup
+        high  = swap[:side] == :upper
+        ohlc  = high ? :high : :low
+        start = base.find{|x| swap[:datetime] == x[:datetime]}
+        swap[:current_change] = (swap[:tpi] * start[:x]).round(8)
+        swap[:current_value]  =  swap[:members].last[ ohlc ] + swap[:current_change] * sym[:ticksize]
+        swap[:current_diff]   = (swap[:current_value] - zero[ohlc]) * (high ? 1 : -1 )
+        swap[:current_dist]   = (swap[:current_diff] / sym[:ticksize]).to_i
+        swap[:exceeded]       =  zero[:datetime] if swap[:current_dist] < grace
+        swap
+      end
     end
 
-    Intraday_Stencils = Intraday_Stencil
   end
+
 end
