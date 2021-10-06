@@ -1,3 +1,8 @@
+## 0.3.4 (October 06, 2021)
+  - intraday_stencil: major rework resp. rebuild ... now beta-ready
+  - helpers: preparing puts_swap and get_jsonl_name to work intraday
+  - puts_swap: changed output scheme to provide exceedance as NOTE
+
 ## 0.3.3 (October 05, 2021)
   - helpers::load_swaps: added :exceed to allow 1(sic) swap to be exceeded while loading
   - tritangulate: added :manual for feature of manual swap creation with base of 2 members
