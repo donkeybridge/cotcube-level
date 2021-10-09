@@ -39,17 +39,17 @@ module Cotcube
         stencil: nil,               # instead of preparing, use this one if set
         warnings: true              # be more quiet
       )
-        @shiftset = Intraday_Stencil.shiftset(asset: asset)
-        @timezone  = Cotcube::Level::TIMEZONES[@shiftset[:tz]]
-        @debug     = debug
-        @interval  = interval
-        @swap_type = swap_type
-        @warnings = warnings
-        datetime ||= DateTime.now
-        datetime  = @timezone.at(datetime.to_i) unless datetime.is_a? ActiveSupport::TimeWithZone
-        @datetime = datetime.beginning_of_day
-        @datetime += interval while @datetime <= datetime - interval
-        @datetime -= interval
+        @shiftset   = Intraday_Stencil.shiftset(asset: asset)
+        @timezone   = Cotcube::Level::TIMEZONES[@shiftset[:tz]]
+        @debug      = debug
+        @interval   = interval
+        @swap_type  = swap_type
+        @warnings   = warnings
+        datetime  ||= DateTime.now
+        datetime    = @timezone.at(datetime.to_i) unless datetime.is_a? ActiveSupport::TimeWithZone
+        @datetime   = datetime.beginning_of_day
+        @datetime  += interval while @datetime <= datetime - interval
+        @datetime  -= interval
 
         const = "RAW_INTRA_STENCIL_#{@shiftset[:nr]}_#{interval.in_minutes.to_i}".to_sym
         if Object.const_defined? const
@@ -120,22 +120,22 @@ module Cotcube
           @base.select!{|x| %i[ pre rth post ].include?(x[:type]) }
         when :rth
           @base.select!{|x| x[:type] == :rth  }
-          # to.map{    |x| [:high, :low, :volume].map{|z| x[z] = nil} if x[:block] }
         when :flow
-          @base.reject!{|x| %i[ meow postmm postmm5 ].include?(x[:type]) }
+          @base.reject!{|x| %i[ sow eow mpost mpost ].include?(x[:type]) }
           @base.
             map{ |x|
             [:high, :low, :volume].map{|z| x[z] = nil} unless x[:type] == :rth
-            # [:high, :low, :volume].map{|z| x[z] = nil} if x[:block]
           }
         when :run
-          @base.select!{|x| %i[ premarket rth postmarket ].include? x[:type]}
+          @base.select!{|x| %i[ pre rth post ].include? x[:type]}
         else
-          raise ArgumentError, "Unknown stencil/swap type '#{type}'"
+          raise ArgumentError, "Unknown stencil/swap type '#{swap_type}'"
         end
         @base.map!{|z| z.dup}
 
-        @index = @base.index{|x| x[:datetime] == @datetime }
+        # zero is, were either x[:datetime] == @datetime (when we are intraday)
+        #         or otherwise {x[:datetime] <= @datetime}.last (when on maintenance)
+        @index = @base.index{|x| x == @base.select{|y| y[:datetime] <= @datetime }.last }
         @index -= 1 while %i[sow sod mpre mpost eod eow].include? @base[@index][:type]
         @datetime = @base[@index][:datetime]
         @zero  = @base[@index]
