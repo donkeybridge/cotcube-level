@@ -1,3 +1,6 @@
+## 0.3.4.1 (October 09, 2021)
+  - intraday_stencil: fixing @index, that did not work when used outside active hours
+
 ## 0.3.4 (October 06, 2021)
   - intraday_stencil: major rework resp. rebuild ... now beta-ready
   - helpers: preparing puts_swap and get_jsonl_name to work intraday
