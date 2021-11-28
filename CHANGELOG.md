@@ -1,3 +1,8 @@
+## 0.3.4.2 (November 28, 2021)
+  - added 2 executables to bin to display eod- and intraday-swaps
+  - helpers: adding ignorance to load_swaps and other, adding .mark_ignored
+  - intraday_stencil: allowing absence of :zero in #use
+
 ## 0.3.4.1 (October 09, 2021)
   - intraday_stencil: fixing @index, that did not work when used outside active hours
 
