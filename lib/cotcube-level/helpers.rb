@@ -23,7 +23,7 @@ module Cotcube
 
     # human readable output
     # please note the format must be given, that should be taken from :sym
-    def member_to_human(member,side: ,format:, daily: false)
+    def member_to_human(member,side: ,format:, daily: false, tws: false)
       high = (side == :upper)
       "#{                         member[:datetime].strftime("%a, %Y-%m-%d#{daily ? "" :" %I:%M%p"}")
         }  x: #{format '%-4d',    member[:x]
@@ -40,33 +40,74 @@ module Cotcube
     # format: e.g. sym[:format]
     # short:  print one line / less verbose
     # notice: add this to output as well
-    def puts_swap(swap, format: , short: true, notice: nil, hash: 3)
-      return if swap[:empty]
+    def puts_swap(swap, format: , short: true, notice: nil, hash: 3, tws: false)
+      return '' if swap[:empty]
+
+      # if presenting swaps from json, the datetimes need to be parsed first
+      swap[:datetime] = DateTime.parse(swap[:datetime]) if swap[:datetime].is_a? String
+      swap[:exceeded] = DateTime.parse(swap[:exceeded]) if swap[:exceeded].is_a? String
+      swap[:ignored]  = DateTime.parse(swap[:ignored])  if swap[:ignored ].is_a? String
+      swap[:side]     = swap[:side].to_sym
+      swap[:members].each do |mem|
+        mem[:datetime] = DateTime.parse(mem[:datetime]) if mem[:datetime].is_a? String
+      end
+
+      # TODO: create config-entry to contain 1.hour -- set of contracts ; 7.hours -- set of contracts [...]
+      #       instead of hard-coding in here
+      # TODO: add also to :member_to_human
+      #       then commit
+      if tws
+        case swap[:contract][0...2]
+        when *%w[ GC SI PL PA HG NG CL HO RB ] 
+          delta_datetime = 1.hour
+        when *%w[ GG DX ]
+          delta_datetime = 7.hours
+        else
+          delta_datetime = 0
+        end
+      else
+        delta_datetime = 0 
+      end
       daily =  %i[ continuous daily ].include?(swap[:interval].to_sym) rescue false
       datetime_format = daily ? '%Y-%m-%d' : '%Y-%m-%d %I:%M %p'
       high = swap[:side] == :high
       ohlc = high ? :high : :low
       if notice.nil? and swap[:exceeded]
-        notice = "exceeded #{swap[:exceeded].strftime(datetime_format)}"
+        notice = "exceeded #{(swap[:exceeded] + delta_datetime).strftime(datetime_format)}"
+      end
+      if swap[:ignored] 
+        notice += "  IGNORED"
       end
       if short
-        puts (hash ? "#{swap[:digest][...hash]}    ".colorize(:light_white) : '') +
-             "S: #{swap[:side]
-            } L: #{   format '%4d', swap[:length]
-            } R: #{   format '%4d', swap[:rating]
-            } D: #{   format '%4d', swap[:depth]
-            } P: #{   format '%10s', (format '%5.2f', swap[:ppi])
-            }   F: #{ format format, swap[:members].last[ ohlc ]
-            }   S: #{ swap[:members].first[:datetime].strftime(datetime_format)
-            } - #{    swap[:members].last[:datetime].strftime(datetime_format)
-            }#{"    NOTE: #{notice}" unless notice.nil?}".colorize(swap[:color] || :white )
+        res ="#{format '%7s', swap[:digest][...hash]
+            } #{   swap[:contract]
+            } #{   swap[:side].to_s
+            }".colorize( swap[:side] == :upper ? :light_green : :light_red ) +
+           " (#{   format '%4d', swap[:length]
+            },#{   format '%4d', swap[:rating]
+            },#{   format '%4d', swap[:depth]
+        }) P: #{   format '%6s', (format '%4.2f', swap[:ppi])
+           }  #{
+                if swap[:current_value].nil?
+              "I: #{   format '%8s', (format format, swap[:members].last[ ohlc ]) }"
+                else
+              "C: #{   format '%8s', (format format, swap[:current_value]) } "
+                end
+          } [#{ (swap[:members].first[:datetime] + delta_datetime).strftime(datetime_format)
+         } - #{    (swap[:members].last[:datetime] + delta_datetime).strftime(datetime_format)
+           }]#{"    NOTE: #{notice}" unless notice.nil?
+           }".colorize(swap[:color] || :white )
+        puts res
       else
-        puts "side: #{swap[:side] }\tlen: #{swap[:length]}  \trating: #{swap[:rating]}".colorize(swap[:color] || :white )
-        puts "diff: #{swap[:ticks]}\tdif: #{swap[:diff].round(7)}\tdepth: #{swap[:depth]}".colorize(swap[:color] || :white )
-        puts "tpi:  #{swap[:tpi]  }\tppi: #{swap[:ppi]}".colorize(swap[:color] || :white )
-        puts "NOTE: #{notice}".colorize(:light_white) unless notice.nil?
-        swap[:members].each {|x| puts member_to_human(x, side: swap[:side], format: format, daily: daily) }
+        res = ["side: #{swap[:side] }\tlen: #{swap[:length]}  \trating: #{swap[:rating]}".colorize(swap[:color] || :white )]
+        res <<  "diff: #{swap[:ticks]}\tdif: #{swap[:diff].round(7)}\tdepth: #{swap[:depth]}".colorize(swap[:color] || :white )
+        res << "tpi:  #{swap[:tpi]  }\tppi: #{swap[:ppi]}".colorize(swap[:color] || :white )
+        res << "NOTE: #{notice}".colorize(:light_white) unless notice.nil?
+        swap[:members].each {|x| res << member_to_human(x, side: swap[:side], format: format, daily: daily) }
+        res = res.join("\n")
+        puts res
       end
+      res
     end
 
     # create a standardized name for the cache files
@@ -81,7 +122,9 @@ module Cotcube
       `mkdir -p #{dir}`         unless File.exist?(dir)
       `ln -s #{dir} #{symlink}` unless File.exist?(symlink)
       file = "#{dir}/#{contract}_#{interval.to_s}_#{swap_type.to_s}.jsonl"
-      `touch #{file}`
+      unless File.exist? file
+        `touch #{file}`
+      end
       file
     end
 
@@ -117,7 +160,9 @@ module Cotcube
 
     # loading of swaps is also straight forward
     # it takes few more efforts to normalize the values to their expected format
-    def load_swaps(interval:, swap_type:, contract:, sym: nil, datetime: nil, recent: false, digest: nil, quiet: false, exceed: false)
+    #
+    # it is not too nice that some actual interactive process is done here in the load section
+    def load_swaps(interval:, swap_type:, contract:, sym: nil, datetime: nil, recent: false, digest: nil, quiet: false, exceed: false, keep_ignored: false)
       file = get_jsonl_name(interval: interval, swap_type: swap_type, contract: contract, sym: sym)
       jsonl = File.read(file)
       data = jsonl.
@@ -128,12 +173,13 @@ module Cotcube
           tap do |sw|
             sw[:datetime] = DateTime.parse(sw[:datetime]) rescue nil
             (sw[:exceeded] = DateTime.parse(sw[:exceeded]) rescue nil) if sw[:exceeded]
+            (sw[:ignored] = DateTime.parse(sw[:ignored]) rescue nil) if sw[:ignored]
             sw[:interval] = interval
             sw[:swap_type] = swap_type
             sw[:contract] = contract
             %i[ side ].each {|key| sw[key] = sw[key].to_sym rescue false }
-            unless sw[:empty] or sw[:exceeded]
-              sw[:color]    = sw[:color].to_sym
+            unless sw[:empty] or sw[:exceeded] or sw[:ignored]
+              sw[:color]    = sw[:color].to_sym 
               sw[:members].map{|mem| mem[:datetime] = DateTime.parse(mem[:datetime]) }
             end
         end
@@ -144,13 +190,20 @@ module Cotcube
         raise RuntimeError, "Inconsistent history for '#{exc}'. Origin not found." if swap.nil?
         swap[:exceeded] = exc[:exceeded]
       end
+      # assign ignorance data to actual swaps
+      data.select{|swap| swap[:ignored] }.each do |ign|
+	swap = data.find{|ref| ref[:digest] == ign[:ref]}
+        raise RuntimeError, "Inconsistent history for '#{ign}'. Origin not found." if swap.nil?
+        swap[:ignored] = ign[:ignored]
+      end
       # do not return bare exceedance information
-      data.reject!{|swap| swap[:exceeded] and swap[:members].nil? }
+      data.reject!{|swap| (swap[:ignored] or swap[:exceeded]) and swap[:members].nil? }
       # do not return swaps that are found 'later'
       data.reject!{|swap| swap[:datetime] > datetime } unless datetime.nil?
       # do not return exceeded swaps, that are exceeded in the past
       recent  = 7.days  if recent.is_a? TrueClass
       recent += 5.hours if recent
+      data.reject!{|swap| swap[:ignored] } unless keep_ignored
       data.reject!{|swap| swap[:exceeded] and swap[:exceeded] < datetime - (recent ? recent : 0) } unless datetime.nil?
       # remove exceedance information that is found 'later'
       data.map{|swap| swap.delete(:exceeded) if swap[:exceeded] and swap[:exceeded] > datetime} unless datetime.nil?
@@ -202,20 +255,31 @@ module Cotcube
           save_swaps to_save, interval: swap[:interval], swap_type: swap[:swap_type], contract: contract, sym: sym, quiet: (not debug)
           swap[:exceeded] = update[:exceeded]
         end
-        %i[ current_change current_value current_diff current_dist ].map{|key| swap[key] = update[key] }
+        %i[ current_change current_value current_diff current_dist alert].map{|key| swap[key] = update[key] }
         swap
       end.compact
     end
 
-    def mark_exceeded(swap:, datetime:, debug: false)
+    def mark_exceeded(swap:, datetime:, debug: false, sym: nil)
       to_save = {
         datetime: datetime,
         ref:      swap[:digest],
         side:     swap[:side],
         exceeded: datetime
       }
-      save_swaps to_save, interval: swap[:interval], swap_type: swap[:swap_type], sym: Cotcube::Helpers.get_id_set(contract: swap[:contract]), contract: swap[:contract], quiet: (not debug)
-      swap[:exceeded] = datetime
+      sym ||=  Cotcube::Helpers.get_id_set(contract: swap[:contract])
+      save_swaps to_save, interval: swap[:interval], swap_type: swap[:swap_type], sym: sym, contract: swap[:contract], quiet: (not debug)
+      swap
+    end
+
+    def mark_ignored(swap:, datetime: DateTime.now, sym: , debug: true)
+      to_save = {
+        datetime: datetime,
+        ref:      swap[:digest],
+        side:     swap[:side],
+        ignored:  datetime
+      }
+      save_swaps to_save, interval: swap[:interval],  swap_type: swap[:swap_type], sym: sym, contract: swap[:contract], quiet: (not debug)
       swap
     end
 

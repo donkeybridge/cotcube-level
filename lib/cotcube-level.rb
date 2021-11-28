@@ -40,6 +40,8 @@ module Cotcube
                     :get_jsonl_name,
                     :load_swaps,
                     :check_exceedance,
+                    :mark_exceeded,
+                    :mark_ignored,
                     :member_to_human
     
     # please note that module_functions of sources provided in non-public files must slso be published within these
