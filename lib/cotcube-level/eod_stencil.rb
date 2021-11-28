@@ -27,7 +27,7 @@ module Cotcube
               raise ArgumentError, "Cannot open stencil from non-existant file #{file}."
             end
           end
-          CSV.read(file).map{|x| { datetime: CHICAGO.parse(x.first).freeze, x: x.last.to_i.freeze } }
+          CSV.read(file).map{|x| { datetime: Cotcube::Helpers::CHICAGO.parse(x.first).freeze, x: x.last.to_i.freeze } }
         end
         unless const_defined? :RAW_STENCILS
           const_set :RAW_STENCILS, { daily:
@@ -136,7 +136,7 @@ module Cotcube
         to.reject!{|x| x[:x].nil? }
       end
 
-      def use(with:, sym:, zero:, grace: -2)
+      def use(with:, sym:, zero: nil, grace: -2)
         # todo: validate with (check if vslid swap
         #                sym  (check keys)
         #                zero (ohlc with x.zero?)
@@ -147,9 +147,11 @@ module Cotcube
         start = base.find{|x| swap[:datetime] == x[:datetime]}
         swap[:current_change] = (swap[:tpi] * start[:x]).round(8)
         swap[:current_value]  =  swap[:members].last[ ohlc ] + swap[:current_change] * sym[:ticksize]
-        swap[:current_diff]   = (swap[:current_value] - zero[ohlc]) * (high ? 1 : -1 )
-        swap[:current_dist]   = (swap[:current_diff] / sym[:ticksize]).to_i
-        swap[:exceeded]       =  zero[:datetime] if swap[:current_dist] < grace
+        unless zero.nil? 
+          swap[:current_diff]   = (swap[:current_value] - zero[ohlc]) * (high ? 1 : -1 )
+          swap[:current_dist]   = (swap[:current_diff] / sym[:ticksize]).to_i
+          swap[:exceeded]       =  zero[:datetime] if swap[:current_dist] < grace
+        end
         swap
       end
     end

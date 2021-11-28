@@ -35,6 +35,7 @@ module Cotcube
         debug: false,
         weeks: 6,
         future: 2,
+        measuring: false,
         version: nil,               # when referring to a specicic version of the stencil
         stencil: nil,               # instead of preparing, use this one if set
         warnings: true              # be more quiet
@@ -51,10 +52,22 @@ module Cotcube
         @datetime  += interval while @datetime <= datetime - interval
         @datetime  -= interval
 
-        const = "RAW_INTRA_STENCIL_#{@shiftset[:nr]}_#{interval.in_minutes.to_i}".to_sym
+        now         = DateTime.now
+        measure = lambda {|x| puts "\nMeasured #{(Time.now - now).to_f.round(2)}: ".colorize(:light_yellow) +  x + "\n\n" if measuring }
+
+        measure.call "Starting initialization for asset '#{asset}' "
+
+        const = "RAW_INTRA_STENCIL_#{@shiftset[:nr]}_#{interval.in_minutes.to_i}_#{weeks}_#{future}".to_sym
+        cachefile = "/var/cotcube/level/stencils/cache/#{swap_type.to_s}_#{interval}_#{@datetime.strftime('%Y-%m-%d-%H-%M')}.json"
+
         if Object.const_defined? const
+          measure.call 'getting cached base from memory'
           @base = (Object.const_get const).map{|z| z.dup}
+        elsif File.exist? cachefile
+          measure.call 'getting cached base from file'
+          @base = JSON.parse(File.read(cachefile), symbolize_names: true).map{|z| z[:datetime] = DateTime.parse(z[:datetime]); z[:type] = z[:type].to_sym; z }
         else
+          measure.call 'creating base from shiftset'
           start_time    = lambda {|x| @shiftset[x].split('-').first rescue '' }
           start_hours   = lambda {|x| @shiftset[x].split('-').first[ 0.. 1].to_i.send(:hours)   rescue 0 }
           start_minutes = lambda {|x| @shiftset[x].split('-').first[-2..-1].to_i.send(:minutes) rescue 0 }
@@ -62,7 +75,7 @@ module Cotcube
           end_hours     = lambda {|x| @shiftset[x].split('-').last [ 0.. 1].to_i.send(:hours)   rescue 0 }
           end_minutes   = lambda {|x| @shiftset[x].split('-').last [-2..-1].to_i.send(:minutes) rescue 0 }
 
-         runner = (@datetime -
+          runner = (@datetime -
                     weeks * 7.days).beginning_of_week(:sunday)
           tm_runner = lambda { runner.strftime('%H%M') }
           @base = []
@@ -113,7 +126,9 @@ module Cotcube
             end
           end
           Object.const_set(const, @base.map{|z| z.dup})
+          File.open(cachefile, 'w'){|f| f.write(@base.to_json)}
         end
+        measure.call "base created with #{@base.size} records"
 
         case swap_type
         when :full
@@ -131,37 +146,33 @@ module Cotcube
         else
           raise ArgumentError, "Unknown stencil/swap type '#{swap_type}'"
         end
+        measure.call "swaptype #{swap_type} applied"
         @base.map!{|z| z.dup}
+        measure.call 'base dupe\'d'
 
         # zero is, were either x[:datetime] == @datetime (when we are intraday)
         #         or otherwise {x[:datetime] <= @datetime}.last (when on maintenance)
-        @index = @base.index{|x| x == @base.select{|y| y[:datetime] <= @datetime }.last }
+        selector =  @base.select{|y| y[:datetime] <= @datetime }.last
+        @index = @base.index{|x| x == selector }
+        measure.call 'index selected'
         @index -= 1 while %i[sow sod mpre mpost eod eow].include? @base[@index][:type]
+        measure.call 'index adjusted'
         @datetime = @base[@index][:datetime]
         @zero  = @base[@index]
         counter = 0
+        measure.call "Applying counter to past"
         while @base[@index - counter] and @index - counter >= 0
           @base[@index - counter][:x] = counter
           counter += 1
         end
         counter = 0
+        measure.call "Applying counter to future"
         while @base[@index + counter] and @index + counter < @base.length
           @base[@index + counter][:x] = -counter
           counter += 1
         end
+        measure.call 'initialization finished'
       end
-
-=begin
-      def dup
-        Intraday_Stencil.new(
-          debug:      @debug,
-          interval:   @interval,
-          swap_type:  @swap_type,
-          datetime:   @datetime,
-          stencil:    @base.map{|x| x.dup}
-        )
-      end
-=end
 
       def zero
         @zero ||=  @base.find{|b| b[:x].zero? }
@@ -190,7 +201,7 @@ module Cotcube
         to.reject!{|x| x[:x].nil? }
       end
 
-      def use(with:, sym:, zero:, grace: -2)
+      def use(with:, sym:, zero: nil, grace: -2)
         # todo: validate with (check if vslid swap
         #                sym  (check keys)
         #                zero (ohlc with x.zero?)
@@ -201,9 +212,12 @@ module Cotcube
         start = base.find{|x| swap[:datetime] == x[:datetime]}
         swap[:current_change] = (swap[:tpi] * start[:x]).round(8)
         swap[:current_value]  =  swap[:members].last[ ohlc ] + swap[:current_change] * sym[:ticksize]
-        swap[:current_diff]   = (swap[:current_value] - zero[ohlc]) * (high ? 1 : -1 )
-        swap[:current_dist]   = (swap[:current_diff] / sym[:ticksize]).to_i
-        swap[:exceeded]       =  zero[:datetime] if swap[:current_dist] < grace
+        unless zero.nil?
+          swap[:current_diff]   = (swap[:current_value] - zero[ohlc]) * (high ? 1 : -1 )
+          swap[:current_dist]   = (swap[:current_diff] / sym[:ticksize]).to_i
+          swap[:alert]          = (swap[:current_diff] / zero[:atr5]).round(2)
+          swap[:exceeded]       =  zero[:datetime] if swap[:current_dist] < grace
+        end
         swap
       end
     end
