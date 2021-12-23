@@ -58,7 +58,7 @@ module Cotcube
         measure.call "Starting initialization for asset '#{asset}' "
 
         const = "RAW_INTRA_STENCIL_#{@shiftset[:nr]}_#{interval.in_minutes.to_i}_#{weeks}_#{future}".to_sym
-        cachefile = "/var/cotcube/level/stencils/cache/#{swap_type.to_s}_#{interval}_#{@datetime.strftime('%Y-%m-%d-%H-%M')}.json"
+        cachefile = "/var/cotcube/level/stencils/cache/#{asset.to_s}_#{swap_type.to_s}_#{interval}_#{@datetime.strftime('%Y-%m-%d-%H-%M')}.json"
 
         if Object.const_defined? const
           measure.call 'getting cached base from memory'
@@ -175,8 +175,14 @@ module Cotcube
       end
 
       def zero
-        @zero ||=  @base.find{|b| b[:x].zero? }
+        index(0)
       end
+
+      def index(offset = 0)
+        @index ||= @base.index{|b| b[:x].zero? }
+        @base[@index + offset]
+      end
+
 
       def apply(to: )
         offset = 0
