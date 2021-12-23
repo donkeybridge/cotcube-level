@@ -1,3 +1,8 @@
+## 0.3.4.3 (December 23, 2021)
+  - gemspec: raised activesupport to v7
+  - intraday_stencil: changed naming scheme for cachefile
+  - eod_stencil: added :timezone to self.provide_eod_stencil
+
 ## 0.3.4.2 (November 28, 2021)
   - added 2 executables to bin to display eod- and intraday-swaps
   - helpers: adding ignorance to load_swaps and other, adding .mark_ignored
