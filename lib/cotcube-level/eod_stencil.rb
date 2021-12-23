@@ -13,7 +13,7 @@ module Cotcube
       #
       # Current daily stencils contain dates from 2020-01-01 to 2023-12-31
       #
-      def self.provide_raw_stencil(type:, interval: :daily, version: nil)
+      def self.provide_raw_stencil(type:, interval: :daily, version: nil, timezone: Cotcube::Helpers::CHICAGO)
         loading = lambda do |typ|
           file_base = "/var/cotcube/level/stencils/stencil_#{interval.to_s}_#{typ.to_s}.csv_"
           if Dir["#{file_base}?*"].empty?
@@ -27,7 +27,7 @@ module Cotcube
               raise ArgumentError, "Cannot open stencil from non-existant file #{file}."
             end
           end
-          CSV.read(file).map{|x| { datetime: Cotcube::Helpers::CHICAGO.parse(x.first).freeze, x: x.last.to_i.freeze } }
+          CSV.read(file).map{|x| { datetime: timezone.parse(x.first).freeze, x: x.last.to_i.freeze } }
         end
         unless const_defined? :RAW_STENCILS
           const_set :RAW_STENCILS, { daily:
@@ -80,7 +80,7 @@ module Cotcube
           raise ArgumentError, "Each stencil members should contain at least :datetime and :x" unless stencil.nil? or
             stencil.map{|x| ([:datetime, :x] - x.keys).empty? and [ActiveSupport::TimeWithZone, Day].include?( x[:datetime] ) and x[:x].is_a?(Integer)}.reduce(:&)
 
-          base = stencil || EOD_Stencil.provide_raw_stencil(type: stencil_type, interval: :daily, version: version)
+          base = stencil || EOD_Stencil.provide_raw_stencil(type: stencil_type, interval: :daily, version: version, timezone: timezone)
 
           # fast rewind to previous trading day
           date = timezone.parse(date) unless [NilClass, Date, ActiveSupport::TimeWithZone].include? date.class
@@ -111,7 +111,12 @@ module Cotcube
       end
 
       def zero
-        @zero ||=  @base.find{|b| b[:x].zero? }
+        index(0)
+      end
+
+      def index(offset = 0)
+        @index ||= @base.index{|b| b[:x].zero? }
+        @base[@index + offset]
       end
 
       def apply(to: )
@@ -154,9 +159,9 @@ module Cotcube
         end
         swap
       end
-    end
+end
 
-  end
+end
 
 end
 
